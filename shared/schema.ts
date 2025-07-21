@@ -41,7 +41,7 @@ export const services = pgTable("services", {
   category: varchar("category", { length: 100 }),
   platform: varchar("platform", { length: 50 }), // Instagram, TikTok, YouTube, etc.
   description: text("description"),
-  price: decimal("price", { precision: 15, scale: 6 }),
+  price: text("price"),
   minOrder: integer("min_order").default(1),
   maxOrder: integer("max_order"),
   isActive: boolean("is_active").default(true),
