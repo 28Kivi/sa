@@ -65,6 +65,7 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   getOrders(): Promise<Order[]>;
   getOrdersByUser(userId: number): Promise<Order[]>;
+  getOrdersByApiKey(apiKeyId: number): Promise<Order[]>;
   getOrder(orderId: string): Promise<Order | undefined>;
   updateOrder(orderId: string, updates: Partial<InsertOrder>): Promise<void>;
 
@@ -198,6 +199,17 @@ export class DatabaseStorage implements IStorage {
 
   async getApiKeys(): Promise<ApiKey[]> {
     return await db.select().from(apiKeys).orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKeyByValue(keyValue: string): Promise<ApiKey | undefined> {
+    const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.keyValue, keyValue));
+    return apiKey;
+  }
+
+  async getOrdersByApiKey(apiKeyId: number): Promise<Order[]> {
+    return await db.select().from(orders)
+      .where(eq(orders.apiKeyId, apiKeyId))
+      .orderBy(desc(orders.createdAt));
   }
 
   async getApiKey(keyValue: string): Promise<ApiKey | undefined> {

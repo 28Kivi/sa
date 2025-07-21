@@ -24,9 +24,10 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/order/${productKey}`);
+      const response = await fetch(`/api/product/${productKey}`);
       if (!response.ok) {
-        throw new Error("Sipariş bulunamadı");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Sipariş bulunamadı");
       }
       
       const data = await response.json();
@@ -34,12 +35,12 @@ export default function Home() {
       
       toast({
         title: "Başarılı",
-        description: "Ürün bilgileri getirildi",
+        description: "Sipariş bilgileri getirildi",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Hata",
-        description: "Geçersiz ürün anahtarı veya sipariş bulunamadı",
+        description: error.message || "Geçersiz ürün anahtarı veya sipariş bulunamadı",
         variant: "destructive",
       });
       setOrderInfo(null);
@@ -85,19 +86,34 @@ export default function Home() {
 
             {orderInfo && (
               <div className="mt-8 p-6 bg-secondary rounded-lg border border-border">
-                <h3 className="text-lg font-semibold mb-4 text-center">Sipariş Bilgileri</h3>
+                <h3 className="text-lg font-semibold mb-4 text-center">✅ Sipariş Başarıyla Teslim Edildi</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Sipariş ID:</span>
                     <span className="font-semibold">{orderInfo.orderId}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Servis:</span>
+                    <span className="font-semibold">{orderInfo.serviceName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Link:</span>
+                    <span className="font-semibold text-blue-500 break-all">{orderInfo.link}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Miktar:</span>
+                    <span className="font-semibold">{orderInfo.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Durum:</span>
                     <span className={`font-semibold ${
                       orderInfo.status === 'Completed' ? 'text-green-500' : 
-                      orderInfo.status === 'In Progress' ? 'text-yellow-500' : 'text-blue-500'
+                      orderInfo.status === 'In Progress' ? 'text-yellow-500' : 
+                      orderInfo.status === 'Pending' ? 'text-blue-500' : 'text-gray-500'
                     }`}>
-                      {orderInfo.status}
+                      {orderInfo.status === 'Pending' ? 'Beklemede' : 
+                       orderInfo.status === 'In Progress' ? 'İşlemde' : 
+                       orderInfo.status === 'Completed' ? 'Tamamlandı' : orderInfo.status}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -106,22 +122,34 @@ export default function Home() {
                   </div>
                   {orderInfo.startCount && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Başlangıç:</span>
+                      <span className="text-muted-foreground">Başlangıç Sayısı:</span>
                       <span className="font-semibold">{orderInfo.startCount}</span>
                     </div>
                   )}
-                  {orderInfo.remains !== null && (
+                  {orderInfo.remains !== null && orderInfo.remains !== undefined && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Kalan:</span>
                       <span className="font-semibold">{orderInfo.remains}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tarih:</span>
+                    <span className="text-muted-foreground">Sipariş Tarihi:</span>
                     <span className="font-semibold">
                       {new Date(orderInfo.createdAt).toLocaleString("tr-TR")}
                     </span>
                   </div>
+                  {orderInfo.orderCount > 1 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Toplam Sipariş:</span>
+                      <span className="font-semibold">{orderInfo.orderCount} adet</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/20 rounded-lg border border-green-300 dark:border-green-800">
+                  <p className="text-green-800 dark:text-green-300 text-sm text-center font-medium">
+                    Siparişiniz başarıyla işleme alındı. Takip için bu sayfayı favorilerinize ekleyebilirsiniz.
+                  </p>
                 </div>
               </div>
             )}

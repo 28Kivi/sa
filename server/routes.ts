@@ -356,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public API for order status
+  // Public API for order status by order ID
   app.get("/api/order/:orderId", async (req, res) => {
     try {
       const { orderId } = req.params;
@@ -376,6 +376,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Get order error:", error);
+      res.status(500).json({ message: "Sunucu hatası" });
+    }
+  });
+
+  // Public API for order status by product key (API key)
+  app.get("/api/product/:productKey", async (req, res) => {
+    try {
+      const { productKey } = req.params;
+      
+      // Find the API key
+      const apiKey = await storage.getApiKeyByValue(productKey);
+      if (!apiKey) {
+        return res.status(404).json({ message: "Geçersiz ürün anahtarı veya sipariş bulunamadı" });
+      }
+      
+      // Get orders for this API key
+      const orders = await storage.getOrdersByApiKey(apiKey.id);
+      if (!orders || orders.length === 0) {
+        return res.status(404).json({ message: "Bu ürün anahtarı için sipariş bulunamadı" });
+      }
+      
+      // Return the most recent order with service details
+      const latestOrder = orders[0];
+      const service = latestOrder.serviceId ? await storage.getService(latestOrder.serviceId) : null;
+      
+      res.json({
+        orderId: latestOrder.orderId,
+        status: latestOrder.status,
+        serviceName: service?.name || "Bilinmeyen Servis",
+        link: latestOrder.link,
+        quantity: latestOrder.quantity,
+        charge: latestOrder.charge,
+        startCount: latestOrder.startCount,
+        remains: latestOrder.remains,
+        createdAt: latestOrder.createdAt,
+        orderCount: orders.length
+      });
+    } catch (error) {
+      console.error("Get product order error:", error);
       res.status(500).json({ message: "Sunucu hatası" });
     }
   });

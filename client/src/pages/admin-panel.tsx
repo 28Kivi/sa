@@ -62,6 +62,9 @@ export default function AdminPanel() {
     usageLimit: "",
     count: "1",
   });
+  
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [selectedServices, setSelectedServices] = useState<any[]>([]);
 
   // Queries
   const { data: apiProviders } = useQuery({
@@ -148,6 +151,8 @@ export default function AdminPanel() {
       queryClient.invalidateQueries({ queryKey: ["admin", "api-keys"] });
       toast({ title: "Başarılı", description: "API anahtarları oluşturuldu" });
       setKeyForm({ serviceIds: "", usageLimit: "", count: "1" });
+      setSelectedServices([]);
+      setServiceSearch("");
     },
     onError: () => {
       toast({ title: "Hata", description: "API anahtarları oluşturulamadı", variant: "destructive" });
@@ -171,7 +176,18 @@ export default function AdminPanel() {
 
   const handleCreateApiKeys = (e: React.FormEvent) => {
     e.preventDefault();
-    const serviceIds = keyForm.serviceIds.split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    
+    if (selectedServices.length === 0) {
+      toast({ 
+        title: "Hata", 
+        description: "En az bir servis seçmelisiniz", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    const serviceIds = selectedServices.map(service => service.id);
+    
     createApiKeysMutation.mutate({
       serviceIds,
       usageLimit: parseInt(keyForm.usageLimit),
@@ -378,14 +394,65 @@ export default function AdminPanel() {
               <CardContent>
                 <form onSubmit={handleCreateApiKeys} className="space-y-4">
                   <div>
-                    <Label htmlFor="service-ids">Servis ID'leri (virgülle ayırın)</Label>
-                    <Textarea
-                      id="service-ids"
-                      value={keyForm.serviceIds}
-                      onChange={(e) => setKeyForm({ ...keyForm, serviceIds: e.target.value })}
-                      placeholder="10611, 10612, 10613"
-                      required
+                    <Label htmlFor="service-search">Servis Ara</Label>
+                    <Input
+                      id="service-search"
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      placeholder="Örnek: türk izlenme"
                     />
+                    
+                    {/* Service search results */}
+                    {serviceSearch && (
+                      <div className="mt-2 max-h-60 overflow-y-auto border border-border rounded-md">
+                        {services?.filter((service: any) => 
+                          service.name.toLowerCase().includes(serviceSearch.toLowerCase())
+                        ).slice(0, 10).map((service: any) => (
+                          <div 
+                            key={service.id} 
+                            className="p-2 hover:bg-muted cursor-pointer border-b border-border last:border-b-0"
+                            onClick={() => {
+                              if (!selectedServices.find(s => s.id === service.id)) {
+                                setSelectedServices([...selectedServices, service]);
+                                setServiceSearch("");
+                              }
+                            }}
+                          >
+                            <div className="font-medium text-sm">{service.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              ID: {service.externalServiceId} | Fiyat: {service.price} | Min: {service.minOrder}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Selected services */}
+                    {selectedServices.length > 0 && (
+                      <div className="mt-2">
+                        <Label>Seçilen Servisler</Label>
+                        <div className="space-y-2 mt-1">
+                          {selectedServices.map((service) => (
+                            <div key={service.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                              <div>
+                                <div className="font-medium text-sm">{service.name}</div>
+                                <div className="text-xs text-muted-foreground">ID: {service.externalServiceId}</div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedServices(selectedServices.filter(s => s.id !== service.id));
+                                }}
+                              >
+                                Kaldır
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div>
