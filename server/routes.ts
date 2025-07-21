@@ -560,21 +560,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Bu ürün anahtarı için sipariş bulunamadı" });
       }
       
-      // Return the most recent order with service details
+      // Return the most recent order (without sensitive information)
       const latestOrder = orders[0];
-      const service = latestOrder.serviceId ? await storage.getService(latestOrder.serviceId) : null;
       
       res.json({
         orderId: latestOrder.orderId,
         status: latestOrder.status,
-        serviceName: service?.name || "Bilinmeyen Servis",
         link: latestOrder.link,
         quantity: latestOrder.quantity,
-        charge: latestOrder.charge,
         startCount: latestOrder.startCount,
         remains: latestOrder.remains,
-        createdAt: latestOrder.createdAt,
-        orderCount: orders.length
+        createdAt: latestOrder.createdAt
       });
     } catch (error) {
       console.error("Get product order error:", error);

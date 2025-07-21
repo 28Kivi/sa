@@ -325,10 +325,7 @@ export default function Home() {
                     <span className="text-muted-foreground">Sipariş ID:</span>
                     <span className="font-semibold">{orderInfo.orderId}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Servis:</span>
-                    <span className="font-semibold">{orderInfo.serviceName}</span>
-                  </div>
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Link:</span>
                     <span className="font-semibold text-blue-500 break-all">{orderInfo.link}</span>
@@ -349,10 +346,7 @@ export default function Home() {
                        orderInfo.status === 'Completed' ? 'Tamamlandı' : orderInfo.status}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ücret:</span>
-                    <span className="font-semibold">{orderInfo.charge} TL</span>
-                  </div>
+
                   {orderInfo.startCount && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Başlangıç Sayısı:</span>
@@ -371,12 +365,7 @@ export default function Home() {
                       {new Date(orderInfo.createdAt).toLocaleString("tr-TR")}
                     </span>
                   </div>
-                  {orderInfo.orderCount > 1 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Toplam Sipariş:</span>
-                      <span className="font-semibold">{orderInfo.orderCount} adet</span>
-                    </div>
-                  )}
+
                 </div>
                 
                 <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/20 rounded-lg border border-green-300 dark:border-green-800">
