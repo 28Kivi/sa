@@ -141,23 +141,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const services = await response.json();
       
+      // Validate services array
+      if (!Array.isArray(services)) {
+        throw new Error('API yanıtı geçersiz format');
+      }
+      
       // Save services to database
-      const servicesToCreate = services.map((service: any) => ({
-        apiProviderId: providerId,
-        externalServiceId: service.service.toString(),
-        name: service.name,
-        category: service.category || 'Diğer',
-        platform: service.name.toLowerCase().includes('instagram') ? 'Instagram' :
-                  service.name.toLowerCase().includes('tiktok') ? 'TikTok' :
-                  service.name.toLowerCase().includes('youtube') ? 'YouTube' :
-                  service.name.toLowerCase().includes('twitter') ? 'Twitter' :
-                  service.name.toLowerCase().includes('facebook') ? 'Facebook' : 'Diğer',
-        description: service.name,
-        price: service.rate,
-        minOrder: service.min || 1,
-        maxOrder: service.max || 10000,
-        isActive: true
-      }));
+      const servicesToCreate = services.map((service: any) => {
+        // Validate required fields
+        if (!service.service || !service.name) {
+          console.warn('Eksik servis verisi:', service);
+          return null;
+        }
+        
+        // Clean and validate price
+        let price = "0.000001";
+        if (service.rate) {
+          const parsedPrice = parseFloat(service.rate);
+          if (!isNaN(parsedPrice) && parsedPrice > 0) {
+            // Ensure price doesn't exceed precision limits
+            price = Math.min(parsedPrice, 999999).toFixed(6);
+          }
+        }
+        
+        return {
+          apiProviderId: providerId,
+          externalServiceId: service.service.toString(),
+          name: service.name.substring(0, 500), // Limit name length
+          category: (service.category || 'Diğer').substring(0, 100),
+          platform: service.name.toLowerCase().includes('instagram') ? 'Instagram' :
+                    service.name.toLowerCase().includes('tiktok') ? 'TikTok' :
+                    service.name.toLowerCase().includes('youtube') ? 'YouTube' :
+                    service.name.toLowerCase().includes('twitter') ? 'Twitter' :
+                    service.name.toLowerCase().includes('facebook') ? 'Facebook' : 'Diğer',
+          description: service.name.substring(0, 1000),
+          price: price,
+          minOrder: Math.max(parseInt(service.min) || 1, 1),
+          maxOrder: Math.min(parseInt(service.max) || 10000, 1000000),
+          isActive: true
+        };
+      }).filter(Boolean); // Remove null entries
       
       const createdServices = await storage.bulkCreateServices(servicesToCreate);
       
