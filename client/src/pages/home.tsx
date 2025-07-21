@@ -50,25 +50,39 @@ export default function Home() {
       // First try to validate the key
       const validateResponse = await fetch(`/api/validate-key/${productKey}`);
       if (validateResponse.ok) {
-        const keyData = await validateResponse.json();
-        setKeyInfo(keyData);
-        
-        toast({
-          title: "Başarılı",
-          description: "Ürün anahtarı doğrulandı. Sipariş bilgilerini girin.",
-        });
-        return;
+        try {
+          const keyData = await validateResponse.json();
+          setKeyInfo(keyData);
+          
+          toast({
+            title: "Başarılı",
+            description: "Ürün anahtarı doğrulandı. Sipariş bilgilerini girin.",
+          });
+          return;
+        } catch (jsonError) {
+          throw new Error("Sunucu yanıtı işlenemedi");
+        }
       }
       
       // If validation fails, try to get existing orders
       const response = await fetch(`/api/product/${productKey}`);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Geçersiz ürün anahtarı");
+        let errorMessage = "Geçersiz ürün anahtarı";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          // Use default error message if JSON parsing fails
+        }
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
-      setOrderInfo(data);
+      try {
+        const data = await response.json();
+        setOrderInfo(data);
+      } catch (jsonError) {
+        throw new Error("Sipariş bilgileri alınamadı");
+      }
       
       toast({
         title: "Başarılı",
@@ -141,11 +155,22 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Sipariş oluşturulamadı");
+        let errorMessage = "Sipariş oluşturulamadı";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          // Use default error message if JSON parsing fails
+        }
+        throw new Error(errorMessage);
       }
 
-      const orderData = await response.json();
+      let orderData;
+      try {
+        orderData = await response.json();
+      } catch (jsonError) {
+        throw new Error("Sipariş yanıtı işlenemedi");
+      }
       
       toast({
         title: "Başarılı",
@@ -160,8 +185,12 @@ export default function Home() {
       // Fetch the created order details
       const orderResponse = await fetch(`/api/product/${productKey}`);
       if (orderResponse.ok) {
-        const data = await orderResponse.json();
-        setOrderInfo(data);
+        try {
+          const data = await orderResponse.json();
+          setOrderInfo(data);
+        } catch (jsonError) {
+          console.warn("Order info fetch failed:", jsonError);
+        }
       }
 
     } catch (error: any) {

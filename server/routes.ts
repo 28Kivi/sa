@@ -650,6 +650,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create order with product key (simplified version)
+  app.post("/api/create-order/:productKey", async (req, res) => {
+    try {
+      const { productKey } = req.params;
+      const { serviceId, quantity, link } = req.body;
+      
+      // Sanitize inputs
+      const sanitizedKey = sanitizeString(productKey);
+      const sanitizedLink = sanitizeUrl(link);
+      
+      if (!sanitizedKey || !sanitizedLink) {
+        return res.status(400).json({ message: "Geçersiz parametreler" });
+      }
+      
+      // Verify API key
+      const apiKey = await storage.getApiKey(sanitizedKey);
+      if (!apiKey || !apiKey.isActive) {
+        return res.status(401).json({ message: "Geçersiz API anahtarı" });
+      }
+      
+      // Check usage limit
+      if ((apiKey.usageCount || 0) >= apiKey.usageLimit) {
+        return res.status(403).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      }
+      
+      // Check if quantity exceeds limit
+      if (quantity > apiKey.usageLimit) {
+        return res.status(400).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      }
+      
+      // Get service details
+      const serviceData = await storage.getService(parseInt(serviceId));
+      if (!serviceData) {
+        return res.status(404).json({ message: "Servis bulunamadı" });
+      }
+      
+      // Check if service is accessible with this key
+      const serviceIds = apiKey.serviceIds as number[];
+      if (!serviceIds || !serviceIds.includes(serviceData.id)) {
+        return res.status(403).json({ 
+          message: "Bu servis için yetkiniz yok"
+        });
+      }
+      
+      // Calculate charge
+      const charge = (parseFloat(serviceData.price || "0") * quantity).toFixed(2);
+      
+      // Create order
+      const orderId = generateOrderId();
+      const order = await storage.createOrder({
+        orderId,
+        apiKeyId: apiKey.id,
+        serviceId: serviceData.id,
+        link: sanitizedLink,
+        quantity: parseInt(quantity),
+        charge,
+        status: "Pending"
+      });
+      
+      // Update API key usage
+      await storage.updateApiKeyUsage(sanitizedKey);
+      
+      // Log activity
+      await storage.createActivityLog({
+        type: "order_created",
+        description: `Sipariş oluşturuldu: ${orderId}`,
+        metadata: { orderId, serviceId: serviceData.id, quantity }
+      });
+      
+      res.json({ orderId });
+    } catch (error) {
+      console.error("Create order error:", error);
+      res.status(500).json({ message: "Sunucu hatası" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
