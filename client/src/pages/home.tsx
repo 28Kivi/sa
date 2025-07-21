@@ -2,13 +2,35 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+interface KeyValidationInfo {
+  keyId: number;
+  isValid: boolean;
+  usageCount: number;
+  usageLimit: number;
+  remainingUses: number;
+  services: Array<{
+    id: number;
+    name: string;
+    category: string;
+    min: number;
+    max: number;
+    rate: number;
+  }>;
+}
 
 export default function Home() {
   const [productKey, setProductKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [keyInfo, setKeyInfo] = useState<KeyValidationInfo | null>(null);
   const [orderInfo, setOrderInfo] = useState<any>(null);
+  const [selectedService, setSelectedService] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [link, setLink] = useState("");
   const { toast } = useToast();
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -24,10 +46,24 @@ export default function Home() {
 
     setIsLoading(true);
     try {
+      // First try to validate the key
+      const validateResponse = await fetch(`/api/validate-key/${productKey}`);
+      if (validateResponse.ok) {
+        const keyData = await validateResponse.json();
+        setKeyInfo(keyData);
+        
+        toast({
+          title: "Başarılı",
+          description: "Ürün anahtarı doğrulandı. Sipariş bilgilerini girin.",
+        });
+        return;
+      }
+      
+      // If validation fails, try to get existing orders
       const response = await fetch(`/api/product/${productKey}`);
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Sipariş bulunamadı");
+        throw new Error(errorData.message || "Geçersiz ürün anahtarı");
       }
       
       const data = await response.json();
@@ -40,12 +76,91 @@ export default function Home() {
     } catch (error: any) {
       toast({
         title: "Hata",
-        description: error.message || "Geçersiz ürün anahtarı veya sipariş bulunamadı",
+        description: error.message || "Geçersiz ürün anahtarı",
         variant: "destructive",
       });
+      setKeyInfo(null);
       setOrderInfo(null);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedService || !quantity || !link) {
+      toast({
+        title: "Hata",
+        description: "Lütfen tüm alanları doldurun",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const service = keyInfo?.services.find(s => s.id.toString() === selectedService);
+    if (!service) {
+      toast({
+        title: "Hata",
+        description: "Geçersiz servis seçimi",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const quantityNum = parseInt(quantity);
+    if (quantityNum < service.min || quantityNum > service.max) {
+      toast({
+        title: "Hata",
+        description: `Miktar ${service.min} ile ${service.max} arasında olmalıdır`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingOrder(true);
+    try {
+      const response = await apiRequest(`/api/create-order/${productKey}`, {
+        method: "POST",
+        body: JSON.stringify({
+          serviceId: parseInt(selectedService),
+          quantity: quantityNum,
+          link: link.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Sipariş oluşturulamadı");
+      }
+
+      const orderData = await response.json();
+      
+      toast({
+        title: "Başarılı",
+        description: `Sipariş oluşturuldu: ${orderData.orderId}`,
+      });
+
+      // Reset form and get updated order info
+      setKeyInfo(null);
+      setSelectedService("");
+      setQuantity("");
+      setLink("");
+      
+      // Fetch the created order details
+      const orderResponse = await fetch(`/api/product/${productKey}`);
+      if (orderResponse.ok) {
+        const data = await orderResponse.json();
+        setOrderInfo(data);
+      }
+
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Sipariş oluşturulamadı",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingOrder(false);
     }
   };
 
@@ -63,26 +178,112 @@ export default function Home() {
           </CardHeader>
           
           <CardContent className="space-y-6">
-            <form onSubmit={handleVerify} className="space-y-6">
-              <div>
-                <Input
-                  type="text"
-                  value={productKey}
-                  onChange={(e) => setProductKey(e.target.value)}
-                  placeholder="Ürün Anahtarı"
-                  className="h-12 text-center text-lg bg-input border-border focus:border-primary"
+            {!keyInfo && !orderInfo && (
+              <form onSubmit={handleVerify} className="space-y-6">
+                <div>
+                  <Input
+                    type="text"
+                    value={productKey}
+                    onChange={(e) => setProductKey(e.target.value)}
+                    placeholder="Ürün Anahtarı"
+                    className="h-12 text-center text-lg bg-input border-border focus:border-primary"
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-pink-600 hover:bg-pink-700 text-white font-semibold text-lg rounded-lg"
                   disabled={isLoading}
-                />
+                >
+                  {isLoading ? "Doğrulanıyor..." : "✓ Doğrula"}
+                </Button>
+              </form>
+            )}
+
+            {keyInfo && (
+              <div className="space-y-6">
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <h3 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                    Anahtar Doğrulandı ✓
+                  </h3>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Kalan kullanım: {keyInfo.remainingUses}/{keyInfo.usageLimit}
+                  </p>
+                </div>
+
+                <form onSubmit={handleCreateOrder} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Servis Seçin</label>
+                    <Select value={selectedService} onValueChange={setSelectedService}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Servis seçin..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {keyInfo.services.map((service) => (
+                          <SelectItem key={service.id} value={service.id.toString()}>
+                            {service.name} ({service.min}-{service.max}) - ₺{service.rate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Miktar</label>
+                    <Input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      placeholder="Miktar girin..."
+                      className="h-12"
+                      disabled={isCreatingOrder}
+                    />
+                    {selectedService && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Min: {keyInfo.services.find(s => s.id.toString() === selectedService)?.min} - 
+                        Max: {keyInfo.services.find(s => s.id.toString() === selectedService)?.max}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Link/URL</label>
+                    <Input
+                      type="url"
+                      value={link}
+                      onChange={(e) => setLink(e.target.value)}
+                      placeholder="https://..."
+                      className="h-12"
+                      disabled={isCreatingOrder}
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 h-12"
+                      onClick={() => {
+                        setKeyInfo(null);
+                        setSelectedService("");
+                        setQuantity("");
+                        setLink("");
+                      }}
+                    >
+                      İptal
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="flex-1 h-12 bg-pink-600 hover:bg-pink-700 text-white font-semibold"
+                      disabled={isCreatingOrder}
+                    >
+                      {isCreatingOrder ? "Oluşturuluyor..." : "Sipariş Oluştur"}
+                    </Button>
+                  </div>
+                </form>
               </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full h-12 bg-pink-600 hover:bg-pink-700 text-white font-semibold text-lg rounded-lg"
-                disabled={isLoading}
-              >
-                {isLoading ? "Doğrulanıyor..." : "✓ Doğrula"}
-              </Button>
-            </form>
+            )}
 
             {orderInfo && (
               <div className="mt-8 p-6 bg-secondary rounded-lg border border-border">

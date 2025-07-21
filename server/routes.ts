@@ -497,6 +497,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API key validation endpoint - returns key info if valid
+  app.get("/api/validate-key/:productKey", async (req, res) => {
+    try {
+      const { productKey } = req.params;
+      
+      // Find the API key
+      console.log('Validating product key:', productKey);
+      const apiKey = await storage.getApiKeyByValue(productKey);
+      
+      if (!apiKey || !apiKey.isActive) {
+        return res.status(404).json({ message: "Geçersiz ürün anahtarı" });
+      }
+      
+      // Check if usage limit exceeded
+      if (apiKey.usageCount >= apiKey.usageLimit) {
+        return res.status(400).json({ message: "Kullanım limiti aşıldı" });
+      }
+      
+      // Get available services for this key
+      const services = [];
+      for (const serviceId of apiKey.serviceIds) {
+        const service = await storage.getService(serviceId);
+        if (service) {
+          services.push({
+            id: service.id,
+            name: service.name,
+            category: service.category,
+            min: service.min,
+            max: service.max,
+            rate: service.rate
+          });
+        }
+      }
+      
+      res.json({
+        keyId: apiKey.id,
+        isValid: true,
+        usageCount: apiKey.usageCount,
+        usageLimit: apiKey.usageLimit,
+        remainingUses: apiKey.usageLimit - apiKey.usageCount,
+        services: services
+      });
+    } catch (error) {
+      console.error("Validate key error:", error);
+      res.status(500).json({ message: "Sunucu hatası" });
+    }
+  });
+
   // Public API for order status by product key (API key)
   app.get("/api/product/:productKey", async (req, res) => {
     try {
