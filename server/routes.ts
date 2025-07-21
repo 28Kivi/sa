@@ -265,6 +265,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/admin/api-keys/:id", async (req, res) => {
+    try {
+      const keyId = parseInt(req.params.id);
+      await storage.deleteApiKey(keyId);
+      
+      await storage.createActivityLog({
+        type: "api_key_deleted",
+        description: `API anahtarı silindi: ID ${keyId}`,
+        metadata: { keyId }
+      });
+      
+      res.json({ message: "API anahtarı başarıyla silindi" });
+    } catch (error) {
+      console.error("Delete API key error:", error);
+      res.status(500).json({ message: "API anahtarı silinemedi" });
+    }
+  });
+
   // Order management
   app.get("/api/admin/orders", async (req, res) => {
     try {

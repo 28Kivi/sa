@@ -159,6 +159,20 @@ export default function AdminPanel() {
     },
   });
 
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: async (keyId: number) => {
+      const response = await adminApiRequest("DELETE", `/api/admin/api-keys/${keyId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "api-keys"] });
+      toast({ title: "Başarılı", description: "API anahtarı silindi" });
+    },
+    onError: () => {
+      toast({ title: "Hata", description: "API anahtarı silinemedi", variant: "destructive" });
+    },
+  });
+
   const handleLogout = async () => {
     try {
       await adminApiRequest("POST", "/api/admin/logout");
@@ -499,9 +513,23 @@ export default function AdminPanel() {
                     <div key={key.id} className="p-4 border border-border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <code className="text-sm bg-muted px-2 py-1 rounded">{key.keyValue}</code>
-                        <Badge variant={key.isActive ? "default" : "secondary"}>
-                          {key.isActive ? "Aktif" : "Pasif"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={key.isActive ? "default" : "secondary"}>
+                            {key.isActive ? "Aktif" : "Pasif"}
+                          </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm("Bu API anahtarını silmek istediğinizden emin misiniz?")) {
+                                deleteApiKeyMutation.mutate(key.id);
+                              }
+                            }}
+                            disabled={deleteApiKeyMutation.isPending}
+                          >
+                            Sil
+                          </Button>
+                        </div>
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Kullanım: {key.usageCount}/{key.usageLimit} | 
