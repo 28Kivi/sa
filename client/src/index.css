@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(26, 9%, 10%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(26, 9%, 15%);
+  --muted-foreground: hsl(0, 0%, 64%);
+  --popover: hsl(26, 9%, 12%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(26, 9%, 12%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(26, 9%, 20%);
+  --input: hsl(26, 9%, 20%);
+  --primary: hsl(147, 100%, 54%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(26, 9%, 15%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(26, 9%, 15%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(60, 9%, 98%);
+  --ring: hsl(147, 100%, 54%);
+  --radius: 0.5rem;
+  
+  /* Custom colors */
+  --accent-green: hsl(147, 100%, 54%);
+  --accent-blue: hsl(207, 100%, 54%);
+  --text-primary: hsl(0, 0%, 100%);
+  --text-secondary: hsl(0, 0%, 69%);
+}
+
+.dark {
+  --background: hsl(26, 9%, 10%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(26, 9%, 15%);
+  --muted-foreground: hsl(0, 0%, 64%);
+  --popover: hsl(26, 9%, 12%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(26, 9%, 12%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(26, 9%, 20%);
+  --input: hsl(26, 9%, 20%);
+  --primary: hsl(147, 100%, 54%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(26, 9%, 15%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(26, 9%, 15%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62%, 30%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(147, 100%, 54%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-counter {
+    animation: counter 2s ease-out;
+  }
+  
+  .animate-scroll {
+    animation: scroll 40s linear infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes counter {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Custom gradient backgrounds */
+.gradient-green-blue {
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
