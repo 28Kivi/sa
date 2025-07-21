@@ -320,8 +320,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if service is accessible with this key
       const serviceIds = apiKey.serviceIds as number[];
+      console.log('API Key service IDs:', serviceIds);
+      console.log('Requested service ID:', serviceData.id);
+      console.log('Service data:', serviceData);
+      
       if (!serviceIds || !serviceIds.includes(serviceData.id)) {
-        return res.status(403).json({ message: "Bu servis için yetkiniz yok" });
+        return res.status(403).json({ 
+          message: "Bu servis için yetkiniz yok",
+          debug: { 
+            allowedServices: serviceIds, 
+            requestedService: serviceData.id,
+            serviceName: serviceData.name
+          }
+        });
       }
       
       // Calculate charge
@@ -386,7 +397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productKey } = req.params;
       
       // Find the API key
+      console.log('Looking for product key:', productKey);
       const apiKey = await storage.getApiKeyByValue(productKey);
+      console.log('Found API key:', apiKey);
       if (!apiKey) {
         return res.status(404).json({ message: "Geçersiz ürün anahtarı veya sipariş bulunamadı" });
       }
