@@ -133,3 +133,15 @@ Preferred communication style: Simple, everyday language.
 - Applied database schema with `drizzle-kit push`
 - Configured admin credentials as secure environment variables (ADMIN_USERNAME, ADMIN_PASSWORD)
 - Application now running successfully on port 5000
+
+**Security & Privacy Updates**: Enhanced user privacy and system security:
+- Removed sensitive information from user interfaces (service names, pricing, order counts)
+- Hidden debug console logs from end users
+- Cleaned up API responses to only show essential order information
+
+**API Key Usage System**: Implemented quantity-based limit tracking system:
+- Added `totalLimit` and `remainingLimit` columns to API keys table
+- Each order deducts the ordered quantity from the remaining limit
+- API keys automatically deactivate when remaining limit reaches zero
+- Validation endpoints now show accurate remaining quantities
+- Example: Key with 1000 limit → Order 500 → Remaining 500 → Order 500 → Key deactivated

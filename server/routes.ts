@@ -309,7 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const apiKey = await storage.createApiKey({
           keyValue,
           serviceIds,
-          usageLimit: parseInt(usageLimit),
+          totalLimit: parseInt(usageLimit),
+          remainingLimit: parseInt(usageLimit),
           usageCount: 0,
           isActive: true
         });
@@ -403,14 +404,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Geçersiz API anahtarı" });
       }
       
-      // Check usage limit
-      if ((apiKey.usageCount || 0) >= apiKey.usageLimit) {
-        return res.status(403).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      // Check remaining limit
+      if ((apiKey.remainingLimit || 0) <= 0) {
+        return res.status(403).json({ message: "Bu API anahtarının limiti bitmiş" });
       }
       
-      // Check if quantity exceeds limit
-      if (quantity > apiKey.usageLimit) {
-        return res.status(400).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      // Check if quantity exceeds remaining limit
+      if (quantity > (apiKey.remainingLimit || 0)) {
+        return res.status(400).json({ message: `Bu anahtar için kalan limit: ${apiKey.remainingLimit || 0}` });
       }
       
       // Get service details
@@ -501,9 +502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Geçersiz ürün anahtarı" });
       }
       
-      // Check if usage limit exceeded
-      const usageCount = apiKey.usageCount || 0;
-      if (usageCount >= apiKey.usageLimit) {
+      // Check if remaining limit exceeded
+      const remainingLimit = apiKey.remainingLimit || 0;
+      if (remainingLimit <= 0) {
         return res.status(400).json({ message: "Kullanım limiti aşıldı" });
       }
       
@@ -524,10 +525,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         keyId: apiKey.id,
         isValid: true,
-        usageCount: usageCount,
-        usageLimit: apiKey.usageLimit,
-        remainingUses: apiKey.usageLimit - usageCount,
-        maxQuantity: apiKey.usageLimit,
+        usageCount: apiKey.usageCount || 0,
+        usageLimit: apiKey.totalLimit,
+        remainingUses: remainingLimit,
+        maxQuantity: remainingLimit,
         service: {
           id: service.id,
           name: service.name,
@@ -655,14 +656,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Geçersiz API anahtarı" });
       }
       
-      // Check usage limit
-      if ((apiKey.usageCount || 0) >= apiKey.usageLimit) {
-        return res.status(403).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      // Check if key has remaining limit
+      if ((apiKey.remainingLimit || 0) <= 0) {
+        return res.status(403).json({ message: "Bu API anahtarının limiti bitmiş" });
       }
       
-      // Check if quantity exceeds limit
-      if (quantity > apiKey.usageLimit) {
-        return res.status(400).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
+      // Check if requested quantity exceeds remaining limit
+      if (parseInt(quantity) > (apiKey.remainingLimit || 0)) {
+        return res.status(400).json({ message: `Bu anahtar için kalan limit: ${apiKey.remainingLimit || 0}` });
       }
       
       // Get service details
@@ -680,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Calculate charge
-      const charge = (parseFloat(serviceData.price || "0") * quantity).toFixed(2);
+      const charge = (parseFloat(serviceData.price || "0") * parseInt(quantity)).toFixed(2);
       
       // Get API provider for this service
       const provider = await storage.getApiProvider(serviceData.apiProviderId!);
@@ -753,14 +754,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Update API key usage
-      await storage.updateApiKeyUsage(sanitizedKey);
+      // Update API key usage (deduct the quantity from remaining limit)
+      await storage.updateApiKeyUsage(sanitizedKey, parseInt(quantity));
       
       // Log activity
       await storage.createActivityLog({
         type: "order_created",
         description: `Sipariş oluşturuldu: ${orderId}`,
-        metadata: { orderId, serviceId: serviceData.id, quantity }
+        metadata: { orderId, serviceId: serviceData.id, quantity: parseInt(quantity) }
       });
       
       res.json({ orderId });

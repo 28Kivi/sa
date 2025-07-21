@@ -53,8 +53,9 @@ export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),
   keyValue: varchar("key_value", { length: 255 }).notNull().unique(),
   serviceIds: jsonb("service_ids"), // Array of service IDs this key can access
-  usageLimit: integer("usage_limit").notNull(),
-  usageCount: integer("usage_count").default(0),
+  totalLimit: integer("total_limit").notNull(), // Toplam miktar limiti
+  remainingLimit: integer("remaining_limit").notNull(), // Kalan miktar
+  usageCount: integer("usage_count").default(0), // Sipariş sayısı
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

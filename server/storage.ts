@@ -57,7 +57,7 @@ export interface IStorage {
   createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
   getApiKeys(): Promise<ApiKey[]>;
   getApiKey(keyValue: string): Promise<ApiKey | undefined>;
-  updateApiKeyUsage(keyValue: string): Promise<void>;
+  updateApiKeyUsage(keyValue: string, quantity?: number): Promise<void>;
   updateApiKey(id: number, updates: Partial<InsertApiKey>): Promise<void>;
   deleteApiKey(id: number): Promise<void>;
 
@@ -219,12 +219,20 @@ export class DatabaseStorage implements IStorage {
     return key || undefined;
   }
 
-  async updateApiKeyUsage(keyValue: string): Promise<void> {
+  async updateApiKeyUsage(keyValue: string, quantity: number = 0): Promise<void> {
     const key = await this.getApiKey(keyValue);
     if (key) {
+      const newRemainingLimit = Math.max(0, (key.remainingLimit || 0) - quantity);
+      const newUsageCount = (key.usageCount || 0) + 1;
+      const isStillActive = newRemainingLimit > 0;
+      
       await db
         .update(apiKeys)
-        .set({ usageCount: (key.usageCount || 0) + 1 })
+        .set({ 
+          usageCount: newUsageCount,
+          remainingLimit: newRemainingLimit,
+          isActive: isStillActive
+        })
         .where(eq(apiKeys.keyValue, keyValue));
     }
   }
