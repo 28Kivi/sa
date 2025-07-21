@@ -219,11 +219,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const services = await response.json();
-      console.log('API Response received:', { 
-        isArray: Array.isArray(services), 
-        length: Array.isArray(services) ? services.length : 'N/A',
-        sample: Array.isArray(services) && services.length > 0 ? services[0] : services
-      });
       
       // Validate services array
       if (!Array.isArray(services)) {
@@ -268,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .filter((service): service is NonNullable<typeof service> => service !== null); // Remove null entries with proper typing
       
-      console.log(`Attempting to create ${servicesToCreate.length} services`);
+      // Create services in batches
       
       if (servicesToCreate.length === 0) {
         return res.json({ message: "Geçerli servis bulunamadı", services: [] });
@@ -426,9 +421,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if service is accessible with this key
       const serviceIds = apiKey.serviceIds as number[];
-      console.log('API Key service IDs:', serviceIds);
-      console.log('Requested service ID:', serviceData.id);
-      console.log('Service data:', serviceData);
       
       if (!serviceIds || !serviceIds.includes(serviceData.id)) {
         return res.status(403).json({ 
@@ -503,7 +495,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productKey } = req.params;
       
       // Find the API key
-      console.log('Validating product key:', productKey);
       const apiKey = await storage.getApiKeyByValue(productKey);
       
       if (!apiKey || !apiKey.isActive) {
@@ -558,9 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productKey } = req.params;
       
       // Find the API key
-      console.log('Looking for product key:', productKey);
       const apiKey = await storage.getApiKeyByValue(productKey);
-      console.log('Found API key:', apiKey);
       if (!apiKey) {
         return res.status(404).json({ message: "Geçersiz ürün anahtarı veya sipariş bulunamadı" });
       }
@@ -697,6 +686,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate charge
       const charge = (parseFloat(serviceData.price || "0") * quantity).toFixed(2);
       
+      // Get API provider for this service
+      const provider = await storage.getApiProvider(serviceData.apiProviderId!);
+      if (!provider) {
+        return res.status(500).json({ message: "API sağlayıcı bulunamadı" });
+      }
+
       // Create order
       const orderId = generateOrderId();
       const order = await storage.createOrder({
@@ -708,6 +703,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         charge,
         status: "Pending"
       });
+      
+      // Send order to external API
+      try {
+        const externalResponse = await fetch(provider.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            key: provider.apiKey,
+            action: 'add',
+            service: serviceData.externalServiceId,
+            link: sanitizedLink,
+            quantity: parseInt(quantity)
+          })
+        });
+        
+        if (externalResponse.ok) {
+          try {
+            const externalData = await externalResponse.json();
+            
+            // Update order with external order ID if provided
+            if (externalData.order) {
+              await storage.updateOrderStatus(orderId, "In Progress", {
+                externalOrderId: externalData.order.toString()
+              });
+            }
+            
+            await storage.createActivityLog({
+              type: "order_sent_to_api",
+              description: `Sipariş API'ye gönderildi: ${orderId}`,
+              metadata: { orderId, externalOrderId: externalData.order }
+            });
+          } catch (jsonError) {
+            // External API responded but JSON parsing failed
+            await storage.updateOrderStatus(orderId, "In Progress");
+          }
+        } else {
+          // External API failed, but we keep the order as pending
+          await storage.createActivityLog({
+            type: "order_api_failed",
+            description: `API gönderimi başarısız: ${orderId}`,
+            metadata: { orderId, error: externalResponse.statusText }
+          });
+        }
+      } catch (fetchError) {
+        // Network error, but we keep the order as pending
+        await storage.createActivityLog({
+          type: "order_api_error",
+          description: `API bağlantı hatası: ${orderId}`,
+          metadata: { orderId, error: (fetchError as Error).message }
+        });
+      }
       
       // Update API key usage
       await storage.updateApiKeyUsage(sanitizedKey);

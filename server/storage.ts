@@ -68,6 +68,8 @@ export interface IStorage {
   getOrdersByApiKey(apiKeyId: number): Promise<Order[]>;
   getOrder(orderId: string): Promise<Order | undefined>;
   updateOrder(orderId: string, updates: Partial<InsertOrder>): Promise<void>;
+  updateOrderStatus(orderId: string, status: string, extra?: { externalOrderId?: string }): Promise<void>;
+  getApiKeyByValue(keyValue: string): Promise<ApiKey | undefined>;
 
   // Activity log operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
@@ -260,6 +262,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrder(orderId: string, updates: Partial<InsertOrder>): Promise<void> {
     await db.update(orders).set(updates).where(eq(orders.orderId, orderId));
+  }
+
+  async updateOrderStatus(orderId: string, status: string, extra?: { externalOrderId?: string }): Promise<void> {
+    const updateData: any = { status };
+    if (extra?.externalOrderId) {
+      updateData.externalOrderId = extra.externalOrderId;
+    }
+    await db.update(orders).set(updateData).where(eq(orders.orderId, orderId));
   }
 
   // Activity log operations
