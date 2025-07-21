@@ -255,7 +255,7 @@ export default function Home() {
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Seçili Servis</h4>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    {keyInfo.service.name}
+                    Niye Göresin :)
                   </p>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                     Kategori: {keyInfo.service.category}
