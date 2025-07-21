@@ -267,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check usage limit
-      if (apiKey.usageCount >= apiKey.usageLimit) {
+      if ((apiKey.usageCount || 0) >= apiKey.usageLimit) {
         return res.status(403).json({ message: `Bu anahtar maksimum ${apiKey.usageLimit} limitli` });
       }
       

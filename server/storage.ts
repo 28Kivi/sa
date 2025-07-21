@@ -210,7 +210,7 @@ export class DatabaseStorage implements IStorage {
     if (key) {
       await db
         .update(apiKeys)
-        .set({ usageCount: key.usageCount + 1 })
+        .set({ usageCount: (key.usageCount || 0) + 1 })
         .where(eq(apiKeys.keyValue, keyValue));
     }
   }

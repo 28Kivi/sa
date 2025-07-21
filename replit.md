@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 - **Activity Logs**: System activity tracking
 
 ### Client Application
-- **Home Page**: Marketing landing page with hero section, stats, testimonials
+- **Home Page**: Simple product delivery interface for order tracking
 - **Admin Login**: Protected admin authentication at `/kiwi-management-portal`
 - **Admin Panel**: Full service management interface at `/admin-panel`
 - **Component Library**: Complete UI component system with dark theme
@@ -57,11 +57,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Data Flow
 
-1. **Public Website**: Users browse services and register/login
+1. **Product Delivery**: Simple interface for users to track orders by product key
 2. **Admin Authentication**: Secure admin login with session tokens
 3. **Service Management**: Admins manage API providers and services
 4. **Order Processing**: Automated order handling through API providers
-5. **User Balance**: Credit-based system for service purchases
+5. **API Key System**: Programmatic order creation and tracking
 
 ## External Dependencies
 
