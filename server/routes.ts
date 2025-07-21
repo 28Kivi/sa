@@ -1,12 +1,39 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { body, validationResult } from "express-validator";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
 import { insertUserSchema, insertApiProviderSchema, insertApiKeySchema, insertOrderSchema } from "@shared/schema";
 
-const ADMIN_PASSWORD = "ucFMkvJ5Tngq7QCN9Dl31edSWaPAmIRxfGwL62ih4U8jb0VosKHtO";
+// Get admin password from environment variables
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "default-admin-password-change-me";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+
+// Validate environment variables
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn("WARNING: ADMIN_PASSWORD not set in environment variables. Using default password.");
+}
+
+// Input sanitization helpers
+function sanitizeString(input: any): string {
+  if (typeof input !== 'string') return '';
+  return input.trim().replace(/[<>\"'&]/g, '');
+}
+
+function sanitizeUrl(input: any): string {
+  if (typeof input !== 'string') return '';
+  try {
+    const url = new URL(input);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Invalid protocol');
+    }
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
 
 // Helper function to generate random order ID
 function generateOrderId(): string {
@@ -36,13 +63,45 @@ async function verifyAdminSession(req: any): Promise<boolean> {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Input validation middleware
+  const validateAdminLogin = [
+    body('username').isLength({ min: 1 }).trim().escape().withMessage('Kullanıcı adı gerekli'),
+    body('password').isLength({ min: 1 }).withMessage('Şifre gerekli'),
+  ];
+
+  const validateApiProvider = [
+    body('name').isLength({ min: 1, max: 255 }).trim().escape().withMessage('Geçerli bir isim girin'),
+    body('apiUrl').isURL().withMessage('Geçerli bir URL girin'),
+    body('apiKey').isLength({ min: 1 }).trim().withMessage('API anahtarı gerekli'),
+  ];
+
+  const validateOrder = [
+    body('key').isLength({ min: 1 }).trim().withMessage('API anahtarı gerekli'),
+    body('service').isInt({ min: 1 }).withMessage('Geçerli bir servis ID\'si girin'),
+    body('link').isURL().withMessage('Geçerli bir URL girin'),
+    body('quantity').isInt({ min: 1, max: 100000 }).withMessage('Geçerli bir miktar girin'),
+  ];
+
   // Admin authentication
-  app.post("/api/admin/login", async (req, res) => {
+  app.post("/api/admin/login", validateAdminLogin, async (req: Request, res: Response) => {
     try {
-      const { password } = req.body;
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: "Geçersiz giriş verisi", errors: errors.array() });
+      }
+
+      const { username, password } = req.body;
       
-      if (password !== ADMIN_PASSWORD) {
-        return res.status(401).json({ message: "Geçersiz şifre" });
+      // Check both username and password
+      if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+        // Log failed login attempt
+        console.warn(`Failed admin login attempt from IP: ${req.ip}, username: ${username}`);
+        await storage.createActivityLog({
+          type: "admin_login_failed",
+          description: `Başarısız admin giriş denemesi: ${username}`,
+          metadata: { ip: req.ip, username }
+        });
+        return res.status(401).json({ message: "Geçersiz kullanıcı adı veya şifre" });
       }
       
       // Create session token
@@ -50,6 +109,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
       
       await storage.createAdminSession(sessionToken, expiresAt);
+      
+      // Log successful login
+      await storage.createActivityLog({
+        type: "admin_login_success",
+        description: "Admin paneline başarılı giriş",
+        metadata: { ip: req.ip }
+      });
       
       res.json({ sessionToken });
     } catch (error) {
@@ -85,9 +151,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API Provider management
-  app.post("/api/admin/api-providers", async (req, res) => {
+  app.post("/api/admin/api-providers", validateApiProvider, async (req: Request, res: Response) => {
     try {
-      const validatedData = insertApiProviderSchema.parse(req.body);
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: "Geçersiz veri", errors: errors.array() });
+      }
+
+      // Sanitize input data
+      const sanitizedData = {
+        name: sanitizeString(req.body.name),
+        apiUrl: sanitizeUrl(req.body.apiUrl),
+        apiKey: sanitizeString(req.body.apiKey),
+        isActive: req.body.isActive ?? true
+      };
+
+      const validatedData = insertApiProviderSchema.parse(sanitizedData);
       const provider = await storage.createApiProvider(validatedData);
       
       await storage.createActivityLog({
@@ -306,16 +385,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Public API for order creation (with API key)
-  app.post("/api/order", async (req, res) => {
+  app.post("/api/order", validateOrder, async (req: Request, res: Response) => {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: "Geçersiz veri", errors: errors.array() });
+      }
+
       const { key, service, link, quantity } = req.body;
       
-      if (!key || !service || !link || !quantity) {
-        return res.status(400).json({ message: "Eksik parametreler" });
+      // Sanitize inputs
+      const sanitizedKey = sanitizeString(key);
+      const sanitizedLink = sanitizeUrl(link);
+      
+      if (!sanitizedKey || !sanitizedLink) {
+        return res.status(400).json({ message: "Geçersiz parametreler" });
       }
       
       // Verify API key
-      const apiKey = await storage.getApiKey(key);
+      const apiKey = await storage.getApiKey(sanitizedKey);
       if (!apiKey || !apiKey.isActive) {
         return res.status(401).json({ message: "Geçersiz API anahtarı" });
       }
@@ -362,14 +450,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId,
         apiKeyId: apiKey.id,
         serviceId: serviceData.id,
-        link,
+        link: sanitizedLink,
         quantity: parseInt(quantity),
         charge,
         status: "Pending"
       });
       
       // Update API key usage
-      await storage.updateApiKeyUsage(key);
+      await storage.updateApiKeyUsage(sanitizedKey);
       
       // Log activity
       await storage.createActivityLog({

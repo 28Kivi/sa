@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function AdminLogin() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
@@ -17,7 +18,7 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      const response = await apiRequest("POST", "/api/admin/login", { password });
+      const response = await apiRequest("POST", "/api/admin/login", { username, password });
       const data = await response.json();
       
       // Store session token
@@ -53,6 +54,19 @@ export default function AdminLogin() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Kullanıcı Adı
+              </label>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Admin kullanıcı adını girin"
+                className="w-full"
+                required
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium mb-2">
                 Admin Şifresi
