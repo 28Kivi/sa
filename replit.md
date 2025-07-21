@@ -89,6 +89,8 @@ Preferred communication style: Simple, everyday language.
 ### Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string (required)
 - `NODE_ENV`: Environment setting (development/production)
+- `ADMIN_USERNAME`: Admin panel username (required for security)
+- `ADMIN_PASSWORD`: Admin panel password (required for security)
 
 ### Scripts
 - `dev`: Development server with hot reloading

@@ -38,7 +38,16 @@ async function adminApiRequest(method: string, url: string, data?: any) {
   });
   
   if (!response.ok) {
-    throw new Error(`${response.status}: ${response.statusText}`);
+    let errorMessage = `${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch (jsonError) {
+      // If JSON parsing fails, use the original error message
+    }
+    throw new Error(errorMessage);
   }
   
   return response;
@@ -66,12 +75,17 @@ export default function AdminPanel() {
   const [serviceSearch, setServiceSearch] = useState("");
   const [selectedServices, setSelectedServices] = useState<any[]>([]);
 
-  // Queries
+  // Queries with safe JSON parsing
   const { data: apiProviders } = useQuery({
     queryKey: ["admin", "api-providers"],
     queryFn: async () => {
-      const response = await adminApiRequest("GET", "/api/admin/api-providers");
-      return response.json();
+      try {
+        const response = await adminApiRequest("GET", "/api/admin/api-providers");
+        return await response.json();
+      } catch (error) {
+        console.error("API Providers query error:", error);
+        throw error;
+      }
     },
     enabled: !!token,
   });
@@ -79,8 +93,13 @@ export default function AdminPanel() {
   const { data: services } = useQuery({
     queryKey: ["admin", "services"],
     queryFn: async () => {
-      const response = await adminApiRequest("GET", "/api/admin/services");
-      return response.json();
+      try {
+        const response = await adminApiRequest("GET", "/api/admin/services");
+        return await response.json();
+      } catch (error) {
+        console.error("Services query error:", error);
+        throw error;
+      }
     },
     enabled: !!token,
   });
@@ -88,8 +107,13 @@ export default function AdminPanel() {
   const { data: apiKeys } = useQuery({
     queryKey: ["admin", "api-keys"],
     queryFn: async () => {
-      const response = await adminApiRequest("GET", "/api/admin/api-keys");
-      return response.json();
+      try {
+        const response = await adminApiRequest("GET", "/api/admin/api-keys");
+        return await response.json();
+      } catch (error) {
+        console.error("API Keys query error:", error);
+        throw error;
+      }
     },
     enabled: !!token,
   });
@@ -97,8 +121,13 @@ export default function AdminPanel() {
   const { data: orders } = useQuery({
     queryKey: ["admin", "orders"],
     queryFn: async () => {
-      const response = await adminApiRequest("GET", "/api/admin/orders");
-      return response.json();
+      try {
+        const response = await adminApiRequest("GET", "/api/admin/orders");
+        return await response.json();
+      } catch (error) {
+        console.error("Orders query error:", error);
+        throw error;
+      }
     },
     enabled: !!token,
   });
@@ -106,8 +135,13 @@ export default function AdminPanel() {
   const { data: activityLogs } = useQuery({
     queryKey: ["admin", "activity-logs"],
     queryFn: async () => {
-      const response = await adminApiRequest("GET", "/api/admin/activity-logs");
-      return response.json();
+      try {
+        const response = await adminApiRequest("GET", "/api/admin/activity-logs");
+        return await response.json();
+      } catch (error) {
+        console.error("Activity Logs query error:", error);
+        throw error;
+      }
     },
     enabled: !!token,
   });
