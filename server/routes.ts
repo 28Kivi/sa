@@ -511,33 +511,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if usage limit exceeded
-      if (apiKey.usageCount >= apiKey.usageLimit) {
+      const usageCount = apiKey.usageCount || 0;
+      if (usageCount >= apiKey.usageLimit) {
         return res.status(400).json({ message: "Kullanım limiti aşıldı" });
       }
       
-      // Get available services for this key
-      const services = [];
-      for (const serviceId of apiKey.serviceIds) {
-        const service = await storage.getService(serviceId);
-        if (service) {
-          services.push({
-            id: service.id,
-            name: service.name,
-            category: service.category,
-            min: service.min,
-            max: service.max,
-            rate: service.rate
-          });
-        }
+      // Get the first service for this key (API keys should have one service)
+      const serviceIds = Array.isArray(apiKey.serviceIds) ? apiKey.serviceIds : [];
+      const serviceId = serviceIds[0];
+      
+      if (!serviceId) {
+        return res.status(404).json({ message: "Bu anahtar için servis bulunamadı" });
+      }
+      
+      const service = await storage.getService(serviceId);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Servis bulunamadı" });
       }
       
       res.json({
         keyId: apiKey.id,
         isValid: true,
-        usageCount: apiKey.usageCount,
+        usageCount: usageCount,
         usageLimit: apiKey.usageLimit,
-        remainingUses: apiKey.usageLimit - apiKey.usageCount,
-        services: services
+        remainingUses: apiKey.usageLimit - usageCount,
+        maxQuantity: apiKey.usageLimit,
+        service: {
+          id: service.id,
+          name: service.name,
+          category: service.category || "Genel",
+          min: service.minOrder || 1,
+          max: service.maxOrder || 10000,
+          rate: service.price || "0"
+        }
       });
     } catch (error) {
       console.error("Validate key error:", error);

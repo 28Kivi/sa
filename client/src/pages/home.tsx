@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -12,14 +12,15 @@ interface KeyValidationInfo {
   usageCount: number;
   usageLimit: number;
   remainingUses: number;
-  services: Array<{
+  maxQuantity: number;
+  service: {
     id: number;
     name: string;
     category: string;
     min: number;
     max: number;
     rate: number;
-  }>;
+  };
 }
 
 export default function Home() {
@@ -28,7 +29,7 @@ export default function Home() {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [keyInfo, setKeyInfo] = useState<KeyValidationInfo | null>(null);
   const [orderInfo, setOrderInfo] = useState<any>(null);
-  const [selectedService, setSelectedService] = useState("");
+
   const [quantity, setQuantity] = useState("");
   const [link, setLink] = useState("");
   const { toast } = useToast();
@@ -88,30 +89,38 @@ export default function Home() {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedService || !quantity || !link) {
+    if (!quantity || !link) {
       toast({
         title: "Hata",
-        description: "Lütfen tüm alanları doldurun",
+        description: "Lütfen miktar ve link alanlarını doldurun",
         variant: "destructive",
       });
       return;
     }
 
-    const service = keyInfo?.services.find(s => s.id.toString() === selectedService);
-    if (!service) {
+    if (!keyInfo?.service) {
       toast({
         title: "Hata",
-        description: "Geçersiz servis seçimi",
+        description: "Servis bilgisi bulunamadı",
         variant: "destructive",
       });
       return;
     }
 
     const quantityNum = parseInt(quantity);
-    if (quantityNum < service.min || quantityNum > service.max) {
+    if (quantityNum > keyInfo.maxQuantity) {
       toast({
         title: "Hata",
-        description: `Miktar ${service.min} ile ${service.max} arasında olmalıdır`,
+        description: `Maksimum miktar ${keyInfo.maxQuantity} olabilir`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (quantityNum < 1) {
+      toast({
+        title: "Hata",
+        description: "Miktar en az 1 olmalıdır",
         variant: "destructive",
       });
       return;
@@ -119,10 +128,13 @@ export default function Home() {
 
     setIsCreatingOrder(true);
     try {
-      const response = await apiRequest(`/api/create-order/${productKey}`, {
+      const response = await fetch(`/api/create-order/${productKey}`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          serviceId: parseInt(selectedService),
+          serviceId: keyInfo.service.id,
           quantity: quantityNum,
           link: link.trim()
         })
@@ -142,7 +154,6 @@ export default function Home() {
 
       // Reset form and get updated order info
       setKeyInfo(null);
-      setSelectedService("");
       setQuantity("");
       setLink("");
       
@@ -212,23 +223,17 @@ export default function Home() {
                   </p>
                 </div>
 
-                <form onSubmit={handleCreateOrder} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Servis Seçin</label>
-                    <Select value={selectedService} onValueChange={setSelectedService}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Servis seçin..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {keyInfo.services.map((service) => (
-                          <SelectItem key={service.id} value={service.id.toString()}>
-                            {service.name} ({service.min}-{service.max}) - ₺{service.rate}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Seçili Servis</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    {keyInfo.service.name}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Kategori: {keyInfo.service.category}
+                  </p>
+                </div>
 
+                <form onSubmit={handleCreateOrder} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2">Miktar</label>
                     <Input
@@ -238,13 +243,12 @@ export default function Home() {
                       placeholder="Miktar girin..."
                       className="h-12"
                       disabled={isCreatingOrder}
+                      min="1"
+                      max={keyInfo.maxQuantity}
                     />
-                    {selectedService && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Min: {keyInfo.services.find(s => s.id.toString() === selectedService)?.min} - 
-                        Max: {keyInfo.services.find(s => s.id.toString() === selectedService)?.max}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Maksimum miktar: {keyInfo.maxQuantity}
+                    </p>
                   </div>
 
                   <div>
@@ -266,7 +270,6 @@ export default function Home() {
                       className="flex-1 h-12"
                       onClick={() => {
                         setKeyInfo(null);
-                        setSelectedService("");
                         setQuantity("");
                         setLink("");
                       }}
