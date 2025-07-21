@@ -9,22 +9,22 @@ const app = express();
 // Trust proxy for rate limiting (required for Replit)
 app.set('trust proxy', 1);
 
-// Security middleware
+// Security middleware - disable CSP in development for Vite compatibility
 app.use(helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-eval'"], // Required for Vite in development
+      scriptSrc: ["'self'", "'unsafe-eval'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "ws:", "wss:"], // Required for Vite HMR
+      connectSrc: ["'self'", "ws:", "wss:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
     },
-  },
-  crossOriginEmbedderPolicy: false, // Required for Vite
+  } : false, // Disable CSP in development
+  crossOriginEmbedderPolicy: false,
 }));
 
 // Rate limiting
