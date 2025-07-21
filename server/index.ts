@@ -6,8 +6,8 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Trust proxy for rate limiting (required for Replit)
-app.set('trust proxy', 1);
+// Trust proxy for rate limiting - must be set before rate limiters
+app.set('trust proxy', true);
 
 // Security middleware - disable CSP in development for Vite compatibility
 app.use(helmet({
